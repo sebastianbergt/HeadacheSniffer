@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/sbe/.platformio/penv/bin:/home/sbe/.platformio/penv:/home/sbe/.cargo/bin:/home/sbe/.local/bin:/opt/ros/melodic/bin:/usr/local/clang_8.0.0/bin:/home/sbe/.cargo/bin:/home/sbe/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
