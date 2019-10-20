@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
 #include "wifi_credentials.h"   // const char* ssid = "ssid"; const char* password = "password";
 #include "server_credentials.h" // const char* host = "google.com"; const uint16_t port = 80;
 #include "MHZ19.h"
@@ -32,30 +33,36 @@ void co2_sensor_setup()
   while (mhz19_uart->getStatus() < 0)
   {
     Serial.println("  MH-Z19B reply is not received or inconsistent.");
+    delay(100);
   }
 }
-typedef struct snuffi_co2_v1
-{
-  uint8_t schema_version = 1;
-  uint8_t mac_address[6] = {};
-  uint16_t co2_ppm = 0;
-  uint16_t temperature = 0;
-  int8_t state = -1;
-} snuffi_co2_v1_t;
 
-void prepareSchema(const measurement_t &m_in, snuffi_co2_v1_t &packet)
+void prepareSchema(const measurement_t &m_in, std::string &data)
 {
-  packet.schema_version = 1;
-  WiFi.macAddress((uint8_t *)&(packet.mac_address));
-  packet.co2_ppm = m_in.co2_ppm;
-  packet.temperature = m_in.temperature;
-  packet.state = m_in.state;
+  using namespace ArduinoJson;
+  // example ~ 68 byte => {"v":1,"mac":"00:00:00:00:00:00","co2":2000,"temp":10.5,"state":-1}
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  if(root != JsonObject::invalid() ) {
+    root["v"] = 1;
+    root["mac"] = WiFi.macAddress();
+    root["co2"] = m_in.co2_ppm;
+    root["temp"]= m_in.temperature;
+    root["state"]= m_in.state;
+    root.printTo(data);
+    Serial.println(data.c_str());
+  } else {
+    Serial.println("Could not allocate jsonBuffer.");
+  }
 }
 
 void publishMeasurements(const measurement_t &m)
 {
   if (WiFi.status() == WL_CONNECTED)
   {
+    std::string data;
+    prepareSchema(m, data);
+
     WiFiClient client; // TCP
     if (!client.connect(host, port))
     {
@@ -64,9 +71,7 @@ void publishMeasurements(const measurement_t &m)
     } else {
       if (client.connected())
       {
-        snuffi_co2_v1_t packet = {};
-        prepareSchema(m, packet);
-        client.write((uint8_t *)(&packet), sizeof(snuffi_co2_v1_t));
+        client.write(data.c_str(), data.length());
         client.flush(1000); // wait maximum 1s
         client.stop();
       }
@@ -94,18 +99,9 @@ void loop()
   if (m.state < 0)
   {
     Serial.print("state: ");
-    Serial.print(m.state);
-  }
-  else
-  {
-    Serial.print("co2: ");
-    Serial.print(m.co2_ppm);
-    Serial.print("temp: ");
-    Serial.print(m.temperature);
-    Serial.print("state: ");
-    Serial.print(m.state);
+    Serial.println(m.state);
+  } else {
     publishMeasurements(m);
-    Serial.println(" published!");
   }
   delay(1000);
 }

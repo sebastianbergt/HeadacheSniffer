@@ -1,3 +1,6 @@
 [submodule "lib/MHZ19"]
 	path = lib/MHZ19
 	url = https://github.com/sebastianbergt/MHZ19.git
+[submodule "lib/ArduinoJson"]
+	path = lib/ArduinoJson
+	url = https://github.com/OttoWinter/ArduinoJson.git
