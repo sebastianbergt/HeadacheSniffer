@@ -1,15 +1,25 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ArduinoJson.h>
-#include "wifi_credentials.h"   // const char* ssid = "ssid"; const char* password = "password";
-#include "server_credentials.h" // const char* host = "google.com"; const uint16_t port = 80;
+#include <WiFi.h>
+#include "SSD1306Wire.h"
 #include "MHZ19.h"
 
-const int rx_pin = D2; //Serial rx pin no D2
-const int tx_pin = D1; //Serial tx pin no D1
+#include <ArduinoJson.h>
+
+#include "wifi_credentials.h"   // const char* ssid = "ssid"; const char* password = "password";
+#include "server_credentials.h" // const char* host = "google.com"; const uint16_t port = 80;
+
+
+const uint8_t I2C_ADDRESS_DISPLAY = 0x3c;
+const uint8_t _SDA = 0x05;
+const uint8_t _SCL = 0x04;
+
+SSD1306Wire display(I2C_ADDRESS_DISPLAY, _SDA, _SCL);
+
+const int rx_pin = 13; //Serial rx pin no D2, green
+const int tx_pin = 12; //Serial tx pin no D1, blue
 MHZ19 *mhz19_uart = new MHZ19(rx_pin, tx_pin);
 
-void setup_wifi()
+void wifi_setup()
 {
   WiFi.begin(ssid, password);
   // Wait for connection
@@ -24,6 +34,19 @@ void setup_wifi()
   Serial.println("");
   Serial.print("  connected with IP address: ");
   Serial.println(WiFi.localIP());
+}
+
+void display_setup()
+{
+  display.init();
+  display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_10);
+
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(0, 0, "Waking up!");
+  display.display();
 }
 
 void co2_sensor_setup()
@@ -50,10 +73,25 @@ void prepareSchema(const measurement_t &m_in, std::string &data)
     root["temp"]= m_in.temperature;
     root["state"]= m_in.state;
     root.printTo(data);
+
     Serial.println(data.c_str());
+
   } else {
     Serial.println("Could not allocate jsonBuffer.");
   }
+}
+
+void displayMeasurements(const measurement_t &m)
+{
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(0, 0, "CO2 [ppm]");
+  display.drawString(72, 0, "Temp [deg]");
+  display.setFont(ArialMT_Plain_24);
+  display.drawString(0, 15, String(m.co2_ppm));
+  display.drawString(84, 15, String(m.temperature));
+  display.display();
 }
 
 void publishMeasurements(const measurement_t &m)
@@ -72,14 +110,14 @@ void publishMeasurements(const measurement_t &m)
       if (client.connected())
       {
         client.write(data.c_str(), data.length());
-        client.flush(1000); // wait maximum 1s
+        client.flush(); // wait maximum 1s
         client.stop();
       }
     }
   }
   else
   {
-    setup_wifi();
+    wifi_setup();
   }
 }
 
@@ -88,19 +126,22 @@ void setup()
   Serial.begin(115200);
   Serial.println("");
   Serial.println("Starting setup...");
-  setup_wifi();
+
+  Serial.println("  display...");
+  display_setup();
+  Serial.println("  wifi...");
+  wifi_setup();
+  Serial.println("  co2 sensor...");
   co2_sensor_setup();
+
   Serial.println("...done!");
 }
 
 void loop()
 {
   measurement_t m = mhz19_uart->getMeasurement();
-  if (m.state < 0)
-  {
-    Serial.print("state: ");
-    Serial.println(m.state);
-  } else {
+  if(m.state != -1) {
+    displayMeasurements(m);
     publishMeasurements(m);
   }
   delay(1000);
