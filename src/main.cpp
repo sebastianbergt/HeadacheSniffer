@@ -63,7 +63,7 @@ void co2_sensor_setup()
 void prepareSchema(const measurement_t &m_in, std::string &data)
 {
   using namespace ArduinoJson;
-  // example ~ 68 byte => {"v":1,"mac":"00:00:00:00:00:00","co2":2000,"temp":10.5,"state":-1}
+  // example ~ 68 byte => {"v":1,"mac":"00:00:00:00:00:00","co2":2000,"temp":10,"state":-1}
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   if(root != JsonObject::invalid() ) {
